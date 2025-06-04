@@ -2,12 +2,18 @@ from fastapi import FastAPI, Request
 from pydantic import BaseModel
 import pickle
 import uvicorn
+import os
 
 # Load model from local file
 with open("rf_churn_model.pkl", "rb") as f:
     model = pickle.load(f)
 
 app = FastAPI()
+
+# ✅ Health check endpoint for Render
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 # Define input schema
 class ChurnInput(BaseModel):
@@ -37,4 +43,5 @@ async def predict_churn(data: ChurnInput):
 
 # Optional for local testing
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 10000))  # Render injects PORT env var
+    uvicorn.run(app, host="0.0.0.0", port=port)
