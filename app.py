@@ -1,28 +1,40 @@
+from fastapi import FastAPI, Request
+from pydantic import BaseModel
+import pickle
+import uvicorn
 
-from flask import Flask, request, jsonify
-import joblib
-import numpy as np
+# Load model from local file
+with open("rf_churn_model.pkl", "rb") as f:
+    model = pickle.load(f)
 
-# Load the trained model
-model = joblib.load("churn_model_enriched.pkl")
+app = FastAPI()
 
-# Create the Flask app
-app = Flask(__name__)
+# Define input schema
+class ChurnInput(BaseModel):
+    recency_days: int
+    frequency: int
+    tenure_days: int
+    avg_order_value: float
+    total_spent: float
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    try:
-        data = request.get_json()
-        features = ['recency', 'frequency', 'tenure', 'avg_order_value']
-        X = np.array([[data[feature] for feature in features]])
-        prob = model.predict_proba(X)[0][1]
-        label = "High Risk" if prob > 0.6 else "Safe"
-        return jsonify({
-            "churn_score": round(float(prob), 2),
-            "churn_label": label
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+@app.post("/predict")
+async def predict_churn(data: ChurnInput):
+    features = [[
+        data.recency_days,
+        data.frequency,
+        data.tenure_days,
+        data.avg_order_value,
+        data.total_spent
+    ]]
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    churn_prob = model.predict_proba(features)[0][1]
+    churn_label = "High" if churn_prob > 0.7 else "Medium" if churn_prob > 0.4 else "Safe"
+
+    return {
+        "churn_score": round(float(churn_prob), 2),
+        "churn_label": churn_label
+    }
+
+# Optional for local testing
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
