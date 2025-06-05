@@ -43,3 +43,6 @@ async def update_churn(payload: PredictionPayload):
         "supabase_status": response.status_code,
         "supabase_response": response.text
     }
+
+@app.get("/health")
+def health():
