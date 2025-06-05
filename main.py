@@ -46,3 +46,4 @@ async def update_churn(payload: PredictionPayload):
 
 @app.get("/health")
 def health():
+    return {"status": "ok"}
