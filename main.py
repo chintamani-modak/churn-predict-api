@@ -1,4 +1,3 @@
-
 import os
 import json
 import requests
@@ -18,7 +17,11 @@ class PredictionPayload(BaseModel):
 
 @app.post("/update-churn")
 async def update_churn(payload: PredictionPayload):
-    # Return early to avoid timeout
+    """
+    Updates churn prediction info for a customer in Supabase.
+    Responds immediately to avoid Pipedream timeouts.
+    """
+    # Immediate response to prevent timeout
     response_payload = {
         "status": "queued",
         "customer_id": payload.customer_id,
@@ -26,7 +29,7 @@ async def update_churn(payload: PredictionPayload):
         "risk_level": payload.risk_level
     }
 
-    # Fire-and-forget Supabase update
+    # Supabase update (fire-and-forget style)
     try:
         headers = {
             "apikey": SUPABASE_API_KEY,
@@ -34,21 +37,33 @@ async def update_churn(payload: PredictionPayload):
             "Content-Type": "application/json"
         }
 
-        data = {
+        update_data = {
             "risk_score": payload.risk_score,
             "risk_level": payload.risk_level
         }
 
         if payload.gpt_insight:
-            data["gpt_insight"] = payload.gpt_insight
+            update_data["gpt_insight"] = payload.gpt_insight
 
-        requests.patch(
-            f"{SUPABASE_URL}/rest/v1/customers?id=eq.{payload.customer_id}",
+        supabase_url = f"{SUPABASE_URL}/rest/v1/customers?id=eq.{payload.customer_id}"
+
+        # Debug print (you can remove later)
+        print(f"[DEBUG] PATCH to {supabase_url} with data: {update_data}")
+
+        response = requests.patch(
+            supabase_url,
             headers=headers,
-            data=json.dumps(data),
+            data=json.dumps(update_data),
             timeout=5
         )
+
+        response_payload["supabase_status"] = response.status_code
+        response_payload["supabase_response"] = response.text
+
+        if response.status_code != 204:
+            response_payload["warning"] = "Supabase update may have failed. Check permissions and ID."
+
     except Exception as e:
-        response_payload["warning"] = f"Supabase update failed: {str(e)}"
+        response_payload["error"] = f"Supabase PATCH failed: {str(e)}"
 
     return response_payload
