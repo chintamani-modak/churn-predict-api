@@ -10,14 +10,13 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_API_KEY = os.getenv("SUPABASE_API_KEY")
 
 class PredictionPayload(BaseModel):
-    customer_id: str  # changed from int to str
+    customer_id: str
     risk_score: float
     risk_level: str
     gpt_insight: str = None
 
 @app.post("/update-churn")
 async def update_churn(payload: PredictionPayload):
-    # Early response for API speed
     response_payload = {
         "status": "queued",
         "customer_id": payload.customer_id,
@@ -40,15 +39,22 @@ async def update_churn(payload: PredictionPayload):
         if payload.gpt_insight:
             data["gpt_insight"] = payload.gpt_insight
 
-        # Update using the actual customer_id column (which is a string)
-        requests.patch(
-            f"{SUPABASE_URL}/rest/v1/customers_new_table?customer_id=eq.{payload.customer_id}",
+        # ✅ PATCH to the new table
+        supabase_url = f"{SUPABASE_URL}/rest/v1/customers_new_table?customer_id=eq.{payload.customer_id}"
+
+        r = requests.patch(
+            supabase_url,
             headers=headers,
             data=json.dumps(data),
             timeout=5
         )
+
+        response_payload["supabase_status"] = r.status_code
+        response_payload["supabase_response"] = r.text
+
     except Exception as e:
         response_payload["warning"] = f"Supabase update failed: {str(e)}"
 
     return response_payload
+
 
