@@ -42,7 +42,7 @@ async def update_churn(payload: PredictionPayload):
 
         # Update using the actual customer_id column (which is a string)
         requests.patch(
-            f"{SUPABASE_URL}/rest/v1/customers?customer_id=eq.{payload.customer_id}",
+            f"{SUPABASE_URL}/rest/v1/customers_new_table?customer_id=eq.{payload.customer_id}",
             headers=headers,
             data=json.dumps(data),
             timeout=5
