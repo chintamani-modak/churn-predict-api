@@ -1,10 +1,11 @@
 import os
 import json
-import pickle
+import joblib
 import requests
 import numpy as np
 from fastapi import FastAPI
 from pydantic import BaseModel
+from xgboost import XGBClassifier, Booster, DMatrix
 
 app = FastAPI()
 
@@ -12,14 +13,23 @@ app = FastAPI()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_API_KEY = os.getenv("SUPABASE_API_KEY")
 
-# Try loading model safely
+# Load model and artifacts
 model = None
+scaler = None
+
 try:
-    with open("rf_churn_model.pkl", "rb") as f:
-        model = pickle.load(f)
-    print("✅ Model loaded successfully.")
+    booster = Booster()
+    booster.load_model("xgb_model.json")  # load XGBoost booster directly
+
+    model = XGBClassifier()
+    model._Booster = booster
+    model.n_classes_ = 2  # required for predict_proba
+    model._le = None  # workaround for label encoder bug in newer XGBoost
+
+    scaler = joblib.load("scaler.pkl")
+    print("✅ Model and scaler loaded successfully.")
 except Exception as e:
-    print("❌ Model loading failed:", str(e))
+    print("❌ Error loading model:", str(e))
 
 # ====== Endpoint 1: Predict churn risk ======
 class PredictPayload(BaseModel):
@@ -31,16 +41,17 @@ class PredictPayload(BaseModel):
 
 @app.post("/predict")
 async def predict(payload: PredictPayload):
-    if model is None:
-        return {"error": "Model not loaded on server."}
+    if model is None or scaler is None:
+        return {"error": "Model or scaler not loaded on server."}
 
     try:
-        features = np.array([[payload.recency, payload.frequency, payload.tenure, payload.aov, payload.total_spent]])
-        print("🚀 INPUT FEATURES:", features)
+        raw = np.array([[payload.recency, payload.frequency, payload.tenure, payload.aov, payload.total_spent]])
+        print("🚀 INPUT FEATURES:", raw)
 
-        probability = model.predict_proba(features)[0][1]  # churn probability
+        features_scaled = scaler.transform(raw)
+        probability = model.predict_proba(features_scaled)[0][1]
+
         risk_score = round(float(probability), 2)
-
         if risk_score > 0.7:
             risk_level = "High"
         elif risk_score > 0.4:
@@ -54,8 +65,7 @@ async def predict(payload: PredictPayload):
         }
 
     except Exception as e:
-        print("❌ Prediction error:", str(e))
-        return {"error": str(e)}
+        return {"error": f"Prediction error: {str(e)}"}
 
 # ====== Endpoint 2: Update Supabase with churn results ======
 class PredictionPayload(BaseModel):
