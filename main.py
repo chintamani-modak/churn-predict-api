@@ -19,15 +19,19 @@ scaler = None
 
 try:
     booster = Booster()
-    booster.load_model("xgb_model.json")  # load XGBoost booster directly
+    if not os.path.exists("xgb_model.json"):
+        raise FileNotFoundError("❌ xgb_model.json not found in Render deployment directory.")
+    booster.load_model("xgb_model.json")  # This will raise if file is corrupt or unreadable
 
     model = XGBClassifier()
     model._Booster = booster
     model.n_classes_ = 2  # required for predict_proba
-    model._le = None  # workaround for label encoder bug in newer XGBoost
+    model._le = None      # workaround for label encoder bug
 
     scaler = joblib.load("scaler.pkl")
+
     print("✅ Model and scaler loaded successfully.")
+
 except Exception as e:
     print("❌ Error loading model:", str(e))
 
