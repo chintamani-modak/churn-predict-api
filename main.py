@@ -1,14 +1,48 @@
 import os
 import json
+import pickle
 import requests
+import numpy as np
 from fastapi import FastAPI
 from pydantic import BaseModel
 
 app = FastAPI()
 
+# Supabase credentials
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_API_KEY = os.getenv("SUPABASE_API_KEY")
 
+# Load model once on startup
+with open("rf_churn_model.pkl", "rb") as f:
+    model = pickle.load(f)
+
+# ====== Endpoint 1: Predict churn risk ======
+class PredictPayload(BaseModel):
+    recency: float
+    frequency: float
+    tenure: float
+    aov: float
+    total_spent: float
+
+@app.post("/predict")
+async def predict(payload: PredictPayload):
+    features = np.array([[payload.recency, payload.frequency, payload.tenure, payload.aov, payload.total_spent]])
+    probability = model.predict_proba(features)[0][1]  # churn probability
+
+    risk_score = round(float(probability), 2)
+    if risk_score > 0.7:
+        risk_level = "High"
+    elif risk_score > 0.4:
+        risk_level = "Medium"
+    else:
+        risk_level = "Low"
+
+    return {
+        "risk_score": risk_score,
+        "risk_level": risk_level
+    }
+
+# ====== Endpoint 2: Update Supabase with churn results ======
 class PredictionPayload(BaseModel):
     customer_id: str
     risk_score: float
@@ -39,7 +73,6 @@ async def update_churn(payload: PredictionPayload):
         if payload.gpt_insight:
             data["gpt_insight"] = payload.gpt_insight
 
-        # ✅ PATCH to the new table
         supabase_url = f"{SUPABASE_URL}/rest/v1/customers_new_table?customer_id=eq.{payload.customer_id}"
 
         r = requests.patch(
@@ -56,5 +89,6 @@ async def update_churn(payload: PredictionPayload):
         response_payload["warning"] = f"Supabase update failed: {str(e)}"
 
     return response_payload
+
 
 
