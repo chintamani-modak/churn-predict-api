@@ -34,21 +34,28 @@ async def predict(payload: PredictPayload):
     if model is None:
         return {"error": "Model not loaded on server."}
 
-    features = np.array([[payload.recency, payload.frequency, payload.tenure, payload.aov, payload.total_spent]])
-    probability = model.predict_proba(features)[0][1]  # churn probability
+    try:
+        features = np.array([[payload.recency, payload.frequency, payload.tenure, payload.aov, payload.total_spent]])
+        print("🚀 INPUT FEATURES:", features)
 
-    risk_score = round(float(probability), 2)
-    if risk_score > 0.7:
-        risk_level = "High"
-    elif risk_score > 0.4:
-        risk_level = "Medium"
-    else:
-        risk_level = "Low"
+        probability = model.predict_proba(features)[0][1]  # churn probability
+        risk_score = round(float(probability), 2)
 
-    return {
-        "risk_score": risk_score,
-        "risk_level": risk_level
-    }
+        if risk_score > 0.7:
+            risk_level = "High"
+        elif risk_score > 0.4:
+            risk_level = "Medium"
+        else:
+            risk_level = "Low"
+
+        return {
+            "risk_score": risk_score,
+            "risk_level": risk_level
+        }
+
+    except Exception as e:
+        print("❌ Prediction error:", str(e))
+        return {"error": str(e)}
 
 # ====== Endpoint 2: Update Supabase with churn results ======
 class PredictionPayload(BaseModel):
@@ -97,6 +104,7 @@ async def update_churn(payload: PredictionPayload):
         response_payload["warning"] = f"Supabase update failed: {str(e)}"
 
     return response_payload
+
 
 
  
