@@ -18,16 +18,35 @@ model = None
 scaler = None
 
 try:
-    # ✅ Dynamically download model file from GitHub if not present
-    model_url = "https://raw.githubusercontent.com/chintamani-modak/churn-predict-api/main/xgb_model.json"
-    model_path = "/tmp/xgb_model.json"
+    # Download model from GitHub
+    github_url = "https://raw.githubusercontent.com/chintamani-modak/churn-predict-api/main/xgb_model.json"
+    response = requests.get(github_url)
 
-    response = requests.get(model_url)
     if response.status_code != 200:
-        raise Exception(f"Failed to download model. Status code: {response.status_code}")
+        raise Exception(f"Failed to fetch xgb_model.json (status code {response.status_code})")
 
-    with open(model_path, "wb") as f:
+    with open("xgb_model.json", "wb") as f:
         f.write(response.content)
+
+    # Load model
+    booster = Booster()
+    booster.load_model("xgb_model.json")
+
+    model = XGBClassifier()
+    model._Booster = booster
+    model.n_classes_ = 2
+    model._le = None
+
+    # Load scaler
+    if not os.path.exists("scaler.pkl"):
+        raise FileNotFoundError("scaler.pkl not found.")
+
+    scaler = joblib.load("scaler.pkl")
+
+    print("✅ Model and scaler loaded successfully.")
+
+except Exception as e:
+    print("❌ Error loading model or scaler:", str(e))
 
     booster = Booster()
     booster.load_model(model_path)
