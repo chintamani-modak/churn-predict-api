@@ -12,12 +12,14 @@ app = FastAPI()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_API_KEY = os.getenv("SUPABASE_API_KEY")
 
-# Load model and scaler on startup
-with open("rf_churn_model.pkl", "rb") as f:
-    model = pickle.load(f)
-
-with open("scaler.pkl", "rb") as f:
-    scaler = pickle.load(f)
+# Try loading model safely
+model = None
+try:
+    with open("rf_churn_model.pkl", "rb") as f:
+        model = pickle.load(f)
+    print("✅ Model loaded successfully.")
+except Exception as e:
+    print("❌ Model loading failed:", str(e))
 
 # ====== Endpoint 1: Predict churn risk ======
 class PredictPayload(BaseModel):
@@ -29,10 +31,11 @@ class PredictPayload(BaseModel):
 
 @app.post("/predict")
 async def predict(payload: PredictPayload):
-    X_raw = np.array([[payload.recency, payload.frequency, payload.tenure, payload.aov, payload.total_spent]])
-    X_scaled = scaler.transform(X_raw)
+    if model is None:
+        return {"error": "Model not loaded on server."}
 
-    probability = model.predict_proba(X_scaled)[0][1]  # churn probability
+    features = np.array([[payload.recency, payload.frequency, payload.tenure, payload.aov, payload.total_spent]])
+    probability = model.predict_proba(features)[0][1]  # churn probability
 
     risk_score = round(float(probability), 2)
     if risk_score > 0.7:
@@ -94,6 +97,9 @@ async def update_churn(payload: PredictionPayload):
         response_payload["warning"] = f"Supabase update failed: {str(e)}"
 
     return response_payload
+
+
+ 
 
 
 
