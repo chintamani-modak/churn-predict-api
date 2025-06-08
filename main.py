@@ -5,7 +5,7 @@ import requests
 import numpy as np
 from fastapi import FastAPI
 from pydantic import BaseModel
-from xgboost import XGBClassifier, Booster, DMatrix
+from xgboost import XGBClassifier, Booster
 
 app = FastAPI()
 
@@ -13,27 +13,35 @@ app = FastAPI()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_API_KEY = os.getenv("SUPABASE_API_KEY")
 
-# Load model and artifacts
+# Load model and scaler
 model = None
 scaler = None
 
 try:
+    # ✅ Dynamically download model file from GitHub if not present
+    model_url = "https://raw.githubusercontent.com/chintamani-modak/churn-predict-api/main/xgb_model.json"
+    model_path = "/tmp/xgb_model.json"
+
+    response = requests.get(model_url)
+    if response.status_code != 200:
+        raise Exception(f"Failed to download model. Status code: {response.status_code}")
+
+    with open(model_path, "wb") as f:
+        f.write(response.content)
+
     booster = Booster()
-    if not os.path.exists("xgb_model.json"):
-        raise FileNotFoundError("❌ xgb_model.json not found in Render deployment directory.")
-    booster.load_model("xgb_model.json")  # This will raise if file is corrupt or unreadable
+    booster.load_model(model_path)
 
     model = XGBClassifier()
     model._Booster = booster
-    model.n_classes_ = 2  # required for predict_proba
-    model._le = None      # workaround for label encoder bug
+    model.n_classes_ = 2
+    model._le = None
 
     scaler = joblib.load("scaler.pkl")
 
     print("✅ Model and scaler loaded successfully.")
-
 except Exception as e:
-    print("❌ Error loading model:", str(e))
+    print("❌ Error loading model or scaler:", str(e))
 
 # ====== Endpoint 1: Predict churn risk ======
 class PredictPayload(BaseModel):
