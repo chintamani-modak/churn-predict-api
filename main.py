@@ -12,9 +12,12 @@ app = FastAPI()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_API_KEY = os.getenv("SUPABASE_API_KEY")
 
-# Load model once on startup
+# Load model and scaler on startup
 with open("rf_churn_model.pkl", "rb") as f:
     model = pickle.load(f)
+
+with open("scaler.pkl", "rb") as f:
+    scaler = pickle.load(f)
 
 # ====== Endpoint 1: Predict churn risk ======
 class PredictPayload(BaseModel):
@@ -26,8 +29,10 @@ class PredictPayload(BaseModel):
 
 @app.post("/predict")
 async def predict(payload: PredictPayload):
-    features = np.array([[payload.recency, payload.frequency, payload.tenure, payload.aov, payload.total_spent]])
-    probability = model.predict_proba(features)[0][1]  # churn probability
+    X_raw = np.array([[payload.recency, payload.frequency, payload.tenure, payload.aov, payload.total_spent]])
+    X_scaled = scaler.transform(X_raw)
+
+    probability = model.predict_proba(X_scaled)[0][1]  # churn probability
 
     risk_score = round(float(probability), 2)
     if risk_score > 0.7:
