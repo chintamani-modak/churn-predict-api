@@ -55,6 +55,8 @@ class PredictPayload(BaseModel):
     tenure: float
     aov: float
     total_spent: float
+    subscription_status: int
+    last_product_category: int
 
 @app.post("/predict")
 async def predict(payload: PredictPayload):
