@@ -57,7 +57,6 @@ class PredictPayload(BaseModel):
     total_spent: float
     subscription_status: int
     last_product_category: int
-    engagement_score: float
     num_cancellations: int
 
 @app.post("/predict")
@@ -66,14 +65,19 @@ async def predict(payload: PredictPayload):
         return {"error": "Model or scaler not loaded on server."}
 
     try:
-        raw = np.array([[payload.recency, payload.frequency, payload.tenure, payload.aov, payload.total_spent,payload.subscription_status,
-    payload.last_product_category,payload.engagement_score,payload.num_cancellations]])
+        # ✅ Compute engagement_score internally
+        engagement_score = payload.frequency / payload.recency if payload.recency > 0 else 0.0
+
+        raw = np.array([[payload.recency, payload.frequency, payload.tenure, payload.aov,
+                         payload.total_spent, payload.subscription_status,
+                         payload.last_product_category, engagement_score, payload.num_cancellations]])
+
         print("🚀 INPUT FEATURES:", raw)
 
         features_scaled = scaler.transform(raw)
         probability = model.predict_proba(features_scaled)[0][1]
 
-        risk_score = round(float(probability), 2)
+        risk_score = round(float(probability), 3)
         if risk_score > 0.7:
             risk_level = "High"
         elif risk_score > 0.4:
@@ -83,7 +87,8 @@ async def predict(payload: PredictPayload):
 
         return {
             "risk_score": risk_score,
-            "risk_level": risk_level
+            "risk_level": risk_level,
+            "engagement_score": round(engagement_score, 3)  # Optional: Return for UI
         }
 
     except Exception as e:
