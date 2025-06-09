@@ -57,6 +57,8 @@ class PredictPayload(BaseModel):
     total_spent: float
     subscription_status: int
     last_product_category: int
+    engagement_score: float
+    num_cancellations: int
 
 @app.post("/predict")
 async def predict(payload: PredictPayload):
@@ -65,7 +67,7 @@ async def predict(payload: PredictPayload):
 
     try:
         raw = np.array([[payload.recency, payload.frequency, payload.tenure, payload.aov, payload.total_spent,payload.subscription_status,
-    payload.last_product_category]])
+    payload.last_product_category,payload.engagement_score,payload.num_cancellations]])
         print("🚀 INPUT FEATURES:", raw)
 
         features_scaled = scaler.transform(raw)
