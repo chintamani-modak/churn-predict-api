@@ -19,18 +19,18 @@ scaler = None
 
 try:
     # Download model from GitHub
-    github_url = "https://raw.githubusercontent.com/chintamani-modak/churn-predict-api/main/xgb_model.json"
+    github_url = "https://raw.githubusercontent.com/chintamani-modak/churn-predict-api/main/rf_churn_model.pkl"
     response = requests.get(github_url)
 
     if response.status_code != 200:
-        raise Exception(f"Failed to fetch xgb_model.json (status code {response.status_code})")
+        raise Exception(f"Failed to fetch rf_churn_model.pkl (status code {response.status_code})")
 
-    with open("xgb_model.json", "wb") as f:
+    with open("rf_churn_model.pkl", "wb") as f:
         f.write(response.content)
 
     # Load model
     booster = Booster()
-    booster.load_model("xgb_model.json")
+    booster.load_model("rf_churn_model.pkl")
 
     model = XGBClassifier()
     model._Booster = booster
@@ -45,20 +45,6 @@ try:
 
     print("✅ Model and scaler loaded successfully.")
 
-except Exception as e:
-    print("❌ Error loading model or scaler:", str(e))
-
-    booster = Booster()
-    booster.load_model(model_path)
-
-    model = XGBClassifier()
-    model._Booster = booster
-    model.n_classes_ = 2
-    model._le = None
-
-    scaler = joblib.load("scaler.pkl")
-
-    print("✅ Model and scaler loaded successfully.")
 except Exception as e:
     print("❌ Error loading model or scaler:", str(e))
 
