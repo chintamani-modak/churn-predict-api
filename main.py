@@ -64,7 +64,8 @@ async def predict(payload: PredictPayload):
         return {"error": "Model or scaler not loaded on server."}
 
     try:
-        raw = np.array([[payload.recency, payload.frequency, payload.tenure, payload.aov, payload.total_spent]])
+        raw = np.array([[payload.recency, payload.frequency, payload.tenure, payload.aov, payload.total_spent,payload.subscription_status,
+    payload.last_product_category]])
         print("🚀 INPUT FEATURES:", raw)
 
         features_scaled = scaler.transform(raw)
