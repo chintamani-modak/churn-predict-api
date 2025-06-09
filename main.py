@@ -100,6 +100,9 @@ class PredictionPayload(BaseModel):
     risk_score: float
     risk_level: str
     gpt_insight: str = None
+    engagement_score: float = None
+    num_cancellations: int = None
+    days_since_last_purchase: int = None
 
 @app.post("/update-churn")
 async def update_churn(payload: PredictionPayload):
@@ -117,13 +120,18 @@ async def update_churn(payload: PredictionPayload):
             "Content-Type": "application/json"
         }
 
+        # ✅ Include new optional fields if available
         data = {
             "risk_score": payload.risk_score,
-            "risk_level": payload.risk_level
+            "risk_level": payload.risk_level,
+            "gpt_insight": payload.gpt_insight,
+            "engagement_score": payload.engagement_score,
+            "num_cancellations": payload.num_cancellations,
+            "days_since_last_purchase": payload.days_since_last_purchase
         }
 
-        if payload.gpt_insight:
-            data["gpt_insight"] = payload.gpt_insight
+        # Remove any None values
+        data = {k: v for k, v in data.items() if v is not None}
 
         supabase_url = f"{SUPABASE_URL}/rest/v1/customers_new_table?customer_id=eq.{payload.customer_id}"
 
